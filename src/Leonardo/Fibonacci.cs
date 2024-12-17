@@ -1,52 +1,67 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Threading.Tasks;
+﻿using System.Text.Json.Serialization;
+using Microsoft.EntityFrameworkCore;
+
+namespace Leonardo;
+
+public record FibonacciResult(int Input, long Result);
 
 
-namespace Leonardo
+public class Fibonacci
 {
-    public record FibonacciResult(int Input, int Result);
+    private readonly FibonacciDataContext _context;
 
-    public static class Fibonacci
+    public Fibonacci(FibonacciDataContext context)
     {
-        public static int GetFibonacci(int n)
+        _context = context;
+    }
+    public int Run(int i)
+    {
+        if (i <= 2)
+            return 1;
+        
+        return Run(i - 1) + Run(i - 2);
+    }
+    public async Task<List<FibonacciResult>> RunAsync(string[] strings)
+    {
+        var tasks = new List<Task<FibonacciResult>>();
+        foreach (var input in strings)
         {
-            if (n <= 2)
+            var int32 = Convert.ToInt32(input);
+            var t_fibo =  await _context.TFibonaccis.Where(t => t.FibInput == int32).FirstOrDefaultAsync();
+            if(t_fibo != null)
             {
-                return 1;
+                var t = Task.Run(() =>
+                {
+                    return new FibonacciResult(t_fibo.FibInput, t_fibo.FibOutput);
+                });
+                tasks.Add(t);
             }
             else
             {
-                return GetFibonacci(n - 1) + GetFibonacci(n - 2);
-            }
-        }
-
-
-        public static async Task<List<FibonacciResult>> Results(string[] strings)
-        {
-            var tasks = new List<Task<FibonacciResult>>();
-
-            foreach (var input in strings)
-            {
-                var int32 = Convert.ToInt32(input);
                 var r = Task.Run(() =>
                 {
-                    var result = Fibonacci.GetFibonacci(int32);
+                    var result = Run(int32);
                     return new FibonacciResult(int32, result);
                 });
-
                 tasks.Add(r);
             }
-
-            var results = new List<FibonacciResult>();
-            foreach (var task in tasks)
-            {
-                var r = await task;
-                results.Add(r);
-            }
-
-            return results;
         }
+    
+        var results = new List<FibonacciResult>();
+        foreach (var task in tasks)
+        {
+            var r = await task;
+            
+            _context.TFibonaccis.Add(new TFibonacci
+            {
+                FibInput = r.Input,
+                FibOutput = r.Result
+            });
+            
+            results.Add(r);
+        }
+
+        await _context.SaveChangesAsync();
+        return results;
     }
 }
-

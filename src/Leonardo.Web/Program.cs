@@ -8,7 +8,7 @@ app.MapGet("/", () => "Hello World 2!");
 
 app.MapGet("/fibonacci", async () =>
 {
-    var result = await Fibonacci.Results(["42"]);
+    var result = await new Fibonacci(new FibonacciDataContext()).RunAsync(new string[] { "42"});
     return Results.Json((List<FibonacciResult>?)result, FibonacciContext.Default.ListFibonacciResult);
 });
 
